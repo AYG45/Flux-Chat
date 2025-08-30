@@ -5,7 +5,9 @@ import { auth, db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import io from 'socket.io-client';
 
-const socket = io('http://localhost:3001');
+// ✅ This now reads the server URL from an environment variable
+// It's flexible for both local development and production
+const socket = io(import.meta.env.VITE_SOCKET_URL);
 
 const Chat = ({ selectedUser }) => {
   const [open, setOpen] = useState(false);
@@ -14,40 +16,36 @@ const Chat = ({ selectedUser }) => {
   const endRef = useRef(null);
   const currentUser = auth.currentUser;
 
-  // ✅ FINAL useEffect: Structured to prevent race conditions
+  // This useEffect hook is correctly structured
   useEffect(() => {
-    // Define the main setup function for the chat
     const setupChat = async () => {
       if (!selectedUser) return;
 
-      // 1. Clear previous messages
-      setMessages([]);
+      setMessages([]); // Clear previous messages
 
-      // 2. Calculate the unique chat ID
       const chatId = currentUser.uid > selectedUser.id
         ? currentUser.uid + selectedUser.id
         : selectedUser.id + currentUser.uid;
 
-      // 3. Fetch chat history from Firestore
+      // Fetch chat history from Firestore
       const chatDocRef = doc(db, "chats", chatId);
       const chatDocSnap = await getDoc(chatDocRef);
       if (chatDocSnap.exists()) {
         setMessages(chatDocSnap.data().messages || []);
       }
 
-      // 4. Join the socket room
-      socket.emit('join_room', chatId);
+      socket.emit('join_room', chatId); // Join the socket room
     };
 
     setupChat();
 
-    // 5. Set up the real-time listener
+    // Set up the real-time listener for new messages
     const handleReceiveMessage = (message) => {
       setMessages((prevMessages) => [...prevMessages, message]);
     };
     socket.on('receive_message', handleReceiveMessage);
 
-    // 6. Cleanup function
+    // Cleanup function to prevent duplicate listeners
     return () => {
       socket.off('receive_message', handleReceiveMessage);
     };

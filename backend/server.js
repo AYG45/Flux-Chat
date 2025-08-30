@@ -4,10 +4,19 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import admin from 'firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { readFileSync } from 'fs'; // ✅ Import fs at the top
 
-import { readFileSync } from 'fs';
-const serviceAccount = JSON.parse(readFileSync('./serviceAccountKey.json'));
+let serviceAccount;
+// ✅ Simplified logic to load the service account key
+if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  // In production (on Render), parse the key from the environment variable
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+} else {
+  // In local development, read the key from the file system
+  serviceAccount = JSON.parse(readFileSync('./serviceAccountKey.json'));
+}
 
+// Initialize Firebase Admin SDK
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
@@ -17,7 +26,8 @@ const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173",
+    // ⚠️ Remember to replace this with your actual Vercel URL
+    origin: ["http://localhost:5173", "https://your-vercel-frontend-url.vercel.app"],
   },
 });
 
@@ -34,7 +44,6 @@ io.on('connection', (socket) => {
     try {
       const chatRef = db.collection('chats').doc(chatId);
       
-      // ✅ FIX: Use .set() with {merge: true} to create the doc if it doesn't exist
       await chatRef.set({
         messages: FieldValue.arrayUnion(message)
       }, { merge: true });
@@ -50,6 +59,8 @@ io.on('connection', (socket) => {
   });
 });
 
-httpServer.listen(3001, () => {
-  console.log('Server is running on port 3001');
+// Use the port provided by the hosting environment, or 3001 for local dev
+const PORT = process.env.PORT || 3001;
+httpServer.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
