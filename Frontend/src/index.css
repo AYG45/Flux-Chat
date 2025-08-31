@@ -7,7 +7,7 @@
 }
 
 body{
-  background-image: url('./background1.jpg');
+  background-color: rgb(56,56,56);
   display: flex;
   align-items: center;
   justify-content: center;
