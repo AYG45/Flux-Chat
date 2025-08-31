@@ -5,8 +5,6 @@ import { auth, db } from '../../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import io from 'socket.io-client';
 
-// ✅ This now reads the server URL from an environment variable
-// It's flexible for both local development and production
 const socket = io(import.meta.env.VITE_SOCKET_URL);
 
 const Chat = ({ selectedUser }) => {
@@ -16,42 +14,37 @@ const Chat = ({ selectedUser }) => {
   const endRef = useRef(null);
   const currentUser = auth.currentUser;
 
-  // This useEffect hook is correctly structured
   useEffect(() => {
     const setupChat = async () => {
       if (!selectedUser) return;
 
-      setMessages([]); // Clear previous messages
+      setMessages([]);
 
       const chatId = currentUser.uid > selectedUser.id
         ? currentUser.uid + selectedUser.id
         : selectedUser.id + currentUser.uid;
 
-      // Fetch chat history from Firestore
       const chatDocRef = doc(db, "chats", chatId);
       const chatDocSnap = await getDoc(chatDocRef);
       if (chatDocSnap.exists()) {
         setMessages(chatDocSnap.data().messages || []);
       }
 
-      socket.emit('join_room', chatId); // Join the socket room
+      socket.emit('join_room', chatId);
     };
 
     setupChat();
 
-    // Set up the real-time listener for new messages
     const handleReceiveMessage = (message) => {
       setMessages((prevMessages) => [...prevMessages, message]);
     };
     socket.on('receive_message', handleReceiveMessage);
 
-    // Cleanup function to prevent duplicate listeners
     return () => {
       socket.off('receive_message', handleReceiveMessage);
     };
   }, [selectedUser, currentUser.uid]);
 
-  // Function to scroll to the latest message
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);

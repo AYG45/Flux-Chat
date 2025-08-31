@@ -1,13 +1,11 @@
 import "./list.css";
-import UserInfo from "./userinfo/UserInfo";
-import ChatList from "./chatList/ChatList";
+import UserInfo from "./userinfo/userinfo";
+import ChatList from "./chatList/chatlist";
 
-// 1. Accept the onSelectChat prop here
 const List = ({ onSelectChat }) => {
   return (
-    <div className='list'> {/* Corrected className from 'List' to 'list' to match your CSS */}
+    <div className='list'>
       <UserInfo />
-      {/* 2. Pass the prop down to ChatList */}
       <ChatList onSelectChat={onSelectChat} />
     </div>
   )

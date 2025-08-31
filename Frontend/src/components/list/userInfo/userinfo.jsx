@@ -31,7 +31,7 @@ const UserInfo = () => {
                     src={userData?.photoURL || "./avatar.png"}
                     alt="Profile"
                 />
-                <h2>{userData?.username || "Loading..."}</h2> {/* ✅ Show actual username */}
+                <h2>{userData?.username || "Loading..."}</h2>
             </div>
             <div className="icons">
                 <img src="./more.png" alt="More" />
