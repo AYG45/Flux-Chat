@@ -40,7 +40,7 @@ const Detail = ({ selectedUser }) => {
   const handleBlockToggle = async () => {
     if (!currentUser || !selectedUser) return;
     try {
-      await fetch(`http://localhost:3001/toggle-block`, {
+      await fetch(`${import.meta.env.VITE_API_URL}/toggle-block`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
