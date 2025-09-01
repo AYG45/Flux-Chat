@@ -1,51 +1,146 @@
-.detail{
+.detail {
   flex: 1;
-
-  .user{
-    padding: 30px 20px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 20px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.453);
-
-  img{
-    width: 100px;
-    height: 100px;
-    border-radius: 50%;
-    object-fit: cover;
-  }
-  }
-
-  .info{
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-    
-    
-    button{
-    padding: 10px 30px;
-    background-color: rgba(255, 0, 0, 0.497);
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-
-    &:hover{
-      background-color: rgba(255, 0, 0, 0.697);
-    }
-
-    &.Logout{
-      padding: 10px;
-      background-color: midnightblue;
-
-      &:hover{
-        background-color: blue;
-      }
-    }
-   }
-  }
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  gap: 20px;
+  overflow-y: auto;
 }
+
+.detail.empty {
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: #a0a0a0;
+}
+
+.detail.empty h2 {
+  margin-bottom: 10px;
+}
+
+.detail .user {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.detail .user img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.detail .user h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #e0e0e0;
+}
+
+.detail .user p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.detail .user p.online {
+  color: #28a745;
+}
+
+.detail .user p.offline {
+  color: #a0a0a0;
+}
+
+.detail .info {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.detail .info .option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detail .info .option span {
+  font-size: 14px;
+  color: #a0a0a0;
+}
+
+.detail .info .option p {
+  margin: 0;
+  font-size: 14px;
+  color: #e0e0e0;
+}
+
+.detail .info .option p.user-id {
+  font-family: monospace;
+  font-size: 12px;
+  background-color: rgba(255, 255, 255, 0.05);
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.detail .actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.detail .actions button {
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.detail .actions button:hover {
+  opacity: 0.8;
+}
+
+.detail .actions .block-user {
+  background-color: #dc3545;
+  color: white;
+}
+
+.detail .actions .logout {
+  background-color: #007bff;
+  color: white;
+}
+
+.detail .back-button {
+  display: none;
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #a0a0a0;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  align-self: flex-start;
+  margin-bottom: 15px;
+}
+
+@media (max-width: 768px) {
+  .detail .back-button {
+    display: block;
+  }
   
-  
+}
+.detail {
+  transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.detail.hide {
+  display: none;
+}
+
+.detail.show {
+  display: block;
+}

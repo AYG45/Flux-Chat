@@ -1,66 +1,59 @@
 import { useEffect, useState } from "react";
 import "./chatlist.css";
-import AddUser from "./adduser/adduser";
+import AddUser from "./adduser/AddUser";
 import { db, auth } from "../../../lib/firebase";
-import { doc, getDoc, updateDoc, arrayRemove } from "firebase/firestore";
+import { onSnapshot, doc, getDoc, updateDoc, arrayRemove } from "firebase/firestore";
 import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 
-const ChatList = ({ onSelectChat }) => {
+const ChatList = ({ onSelectChat, selectedChat, onFriendRemoved }) => {
   const [mode, setMode] = useState(false);
   const [friends, setFriends] = useState([]);
   const currentUser = auth.currentUser;
 
-  const fetchFriends = async () => {
-    if (!currentUser) return;
-
-    try {
-      const userDoc = await getDoc(doc(db, "users", currentUser.uid));
-      if (userDoc.exists()) {
-        const friendIds = userDoc.data().friends || [];
-
-        if (friendIds.length > 0) {
-          const friendsData = [];
-
-          for (const id of friendIds) {
-            const friendDoc = await getDoc(doc(db, "users", id));
-            if (friendDoc.exists()) {
-              friendsData.push({ id, ...friendDoc.data() });
-            }
-          }
-
-          setFriends(friendsData);
-        } else {
-          setFriends([]);
-        }
-      }
-    } catch (err) {
-      console.error("Error fetching friends:", err);
+  useEffect(() => {
+    if (!currentUser) {
+      setFriends([]);
+      return;
     }
-  };
+    const unsub = onSnapshot(doc(db, "users", currentUser.uid), async (res) => {
+      const userData = res.data();
+      if (!userData || !userData.friends || userData.friends.length === 0) {
+        setFriends([]);
+        return;
+      }
+      const friendIds = userData.friends;
+      const friendsDataPromises = friendIds.map(id => getDoc(doc(db, "users", id)));
+      const friendDocs = await Promise.all(friendsDataPromises);
+      const friendsData = friendDocs
+        .filter(docSnap => docSnap.exists())
+        .map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+      setFriends(friendsData);
+    });
+    return () => {
+      unsub();
+    };
+  }, [currentUser]);
 
   const handleRemoveFriend = async (friendId) => {
     if (!currentUser) return;
 
     try {
-      const currentUserRef = doc(db, "users", currentUser.uid);
+      if (selectedChat && selectedChat.id === friendId) {
+        onFriendRemoved();
+      }
 
+      const currentUserRef = doc(db, "users", currentUser.uid);
       await updateDoc(currentUserRef, {
         friends: arrayRemove(friendId)
       });
 
-      setFriends((prev) => prev.filter((f) => f.id !== friendId));
-
       toast.info("Friend removed successfully!");
-    } catch (err) {
+    } catch (err)
+ {
       console.error("Error removing friend:", err);
       toast.error("Failed to remove friend");
     }
   };
-
-  useEffect(() => {
-    fetchFriends();
-  }, [currentUser]);
 
   return (
     <div className="chatlist">
@@ -82,7 +75,6 @@ const ChatList = ({ onSelectChat }) => {
           className="item"
           key={friend.id}
           onClick={() => onSelectChat(friend)}
-          style={{ cursor: "pointer" }}
         >
           <img src={friend.photoURL || "./avatar.png"} alt={friend.username} />
           <div className="text">
@@ -102,7 +94,7 @@ const ChatList = ({ onSelectChat }) => {
         </div>
       ))}
 
-      {mode && <AddUser onUserAdded={fetchFriends} />}
+       {mode && <AddUser onClose={() => setMode(false)} />}
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./lib/firebase";
-import List from "./components/list/List"; // This is your ChatList component
+import List from "./components/list/List";
 import Chat from "./components/chat/Chat";
 import Detail from "./components/detail/Detail";
 import Login from "./components/login/login";
@@ -10,43 +10,48 @@ import Notification from "./components/notification/notification";
 const App = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  // 1. ADD STATE TO HOLD THE SELECTED USER/CHAT
-  // This state will be updated when a user is clicked in the List component.
   const [selectedChat, setSelectedChat] = useState(null);
+  const [showDetail, setShowDetail] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
-
-  // 2. CREATE A HANDLER FUNCTION TO UPDATE THE STATE
-  // This function will be passed down to the List component.
+  
   const handleSelectChat = (chat) => {
-    console.log("Setting selected chat in App.jsx:", chat);
     setSelectedChat(chat);
+    setShowDetail(false); 
   };
 
   if (loading) {
     return <div className="loading-screen">Loading...</div>;
   }
 
+  let containerClassName = "container";
+  if (selectedChat) containerClassName += " chat-active";
+  if (showDetail) containerClassName += " detail-active";
+
   return (
-    <div className="container">
+    <div className={containerClassName}>
       {user ? (
         <>
-          {/* 3. PASS THE HANDLER AND STATE DOWN AS PROPS */}
-
-          {/* The 'List' component receives the function so it can update the state */}
           <List onSelectChat={handleSelectChat} />
-
-          {/* The 'Chat' and 'Detail' components receive the state so they know what to display */}
-          <Chat selectedUser={selectedChat} />
-          <Detail selectedUser={selectedChat} />
+          {selectedChat && (
+            <>
+              <Chat
+                selectedUser={selectedChat}
+                onBack={() => setSelectedChat(null)}
+                onShowDetail={() => setShowDetail((prev) => !prev)} 
+              />
+              <Detail 
+                selectedUser={selectedChat}
+                onBack={() => setShowDetail(false)}
+              />
+            </>
+          )}
         </>
       ) : (
         <Login />
@@ -57,3 +62,4 @@ const App = () => {
 };
 
 export default App;
+

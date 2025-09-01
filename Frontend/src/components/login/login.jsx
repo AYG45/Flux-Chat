@@ -8,7 +8,6 @@ import { doc, setDoc } from 'firebase/firestore';
 const Login = () => {
     const [loading, setLoading] = useState(false);
 
-    // ✅ Handle Login
     const handleLogin = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
@@ -30,7 +29,6 @@ const Login = () => {
         }
     };
 
-    // ✅ Handle Register
     const handleRegister = async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);

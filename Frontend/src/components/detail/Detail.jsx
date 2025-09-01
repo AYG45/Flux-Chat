@@ -3,93 +3,99 @@ import { signOut } from 'firebase/auth';
 import { auth, db } from '../../lib/firebase';
 import { toast } from 'react-toastify';
 import { useEffect, useState } from 'react';
-import { doc, getDoc, updateDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
-const Detail = () => {
-  const [user, setUser] = useState(null);
-  const [username, setUsername] = useState("");
-  const [isOnline, setIsOnline] = useState(false);
-  const [lastSeen, setLastSeen] = useState(null);
+const Detail = ({ selectedUser }) => {
+  const [userDetails, setUserDetails] = useState(null);
+  const [isBlocked, setIsBlocked] = useState(false);
+  const currentUser = auth.currentUser;
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-
-        const userDocRef = doc(db, "users", currentUser.uid);
-
-        // Set online status to true when logged in
-        await updateDoc(userDocRef, {
-          isOnline: true,
-          lastSeen: serverTimestamp()
-        });
-
-        // Listen for changes (online status and lastSeen)
-        const unsubUser = onSnapshot(userDocRef, (docSnap) => {
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            setUsername(data.username);
-            setIsOnline(data.isOnline || false);
-            setLastSeen(data.lastSeen?.toDate());
-          }
-        });
-
-        return () => {
-          unsubUser();
-        };
-      } else {
-        setUser(null);
+    if (!selectedUser) {
+      setUserDetails(null);
+      return;
+    }
+    const userDocRef = doc(db, "users", selectedUser.id);
+    const unsub = onSnapshot(userDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setUserDetails(docSnap.data());
       }
     });
+    return () => unsub();
+  }, [selectedUser]);
 
-    return () => unsubscribe();
-  }, []);
+  useEffect(() => {
+    if (!currentUser || !selectedUser) return;
 
-  const handleLogout = async () => {
-    try {
-      if (user) {
-        const userDocRef = doc(db, "users", user.uid);
-
-        // Set user offline and update last seen
-        await updateDoc(userDocRef, {
-          isOnline: false,
-          lastSeen: serverTimestamp()
-        });
+    const currentUserDocRef = doc(db, "users", currentUser.uid);
+    const unsub = onSnapshot(currentUserDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        setIsBlocked(userData.blocked?.includes(selectedUser.id));
       }
-      await signOut(auth);
-      toast.success("Logged out successfully!");
-    } catch (error) {
-      toast.error("Logout failed: " + error.message);
+    });
+    return () => unsub();
+  }, [currentUser, selectedUser]);
+
+  const handleBlockToggle = async () => {
+    if (!currentUser || !selectedUser) return;
+    try {
+      await fetch(`http://localhost:3001/toggle-block`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUser.uid,
+          targetId: selectedUser.id,
+        }),
+      });
+    } catch (err) {
+      console.error("Error toggling block status:", err);
+      toast.error("Failed to update block status.");
     }
   };
 
+  const handleLogout = () => {
+    signOut(auth).catch((error) => toast.error(error.message));
+  };
+
+  if (!selectedUser) {
+    return (
+      <div className="detail empty">
+        <p>Select a conversation to see details.</p>
+        <button className='logout' onClick={handleLogout}>Logout</button>
+      </div>
+    );
+  }
+
   return (
-    <div className='detail'>
-      {user ? (
-        <>
-          <div className="user">
-            <img src="./avatar.png" alt="User Avatar" />
-            <h2>{username || "Loading..."}</h2>
-            <p>
-              {isOnline ? (
-                <span style={{ color: "green" }}>● Online</span>
-              ) : (
-                `Last seen: ${lastSeen ? lastSeen.toLocaleString() : "unknown"}`
-              )}
-            </p>
-          </div>
-          <div className="info">
-            <p>Email: {user.email}</p>
-            <p>User ID: {user.uid}</p>
-            <button>Block User</button>
-            <button className='Logout' onClick={handleLogout}>Logout</button>
-          </div>
-        </>
-      ) : (
-        <p>Loading user details...</p>
-      )}
+    <div className="detail">
+      <div className="user">
+        <img src={userDetails?.photoURL || "./avatar.png"} alt="User Avatar" />
+        <h2>{userDetails?.username || "..."}</h2>
+        <p>Online Status</p>
+      </div>
+      <div className="info">
+        <div className="option">
+          <span>Email:</span>
+          <p>{userDetails?.email}</p>
+        </div>
+        <div className="option">
+          <span>User ID:</span>
+          <p className="user-id">{selectedUser.id}</p>
+        </div>
+      </div>
+      <div className="actions">
+        <button 
+          className={isBlocked ? 'unblock-user' : 'block-user'} 
+          onClick={handleBlockToggle}
+        >
+          {isBlocked ? 'Unblock User' : 'Block User'}
+        </button>
+        <button className='logout' onClick={handleLogout}>Logout</button>
+      </div>
     </div>
   );
 };
 
 export default Detail;
+

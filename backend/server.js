@@ -1,66 +1,97 @@
-// server.js
 import express from 'express';
-import { createServer } from 'http';
-import { Server } from 'socket.io';
+import cors from 'cors';
 import admin from 'firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { readFileSync } from 'fs'; // ✅ Import fs at the top
+import Ably from 'ably';
+import { readFileSync } from 'fs';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 let serviceAccount;
-// ✅ Simplified logic to load the service account key
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-  // In production (on Render), parse the key from the environment variable
   serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 } else {
-  // In local development, read the key from the file system
   serviceAccount = JSON.parse(readFileSync('./serviceAccountKey.json'));
 }
 
-// Initialize Firebase Admin SDK
+const ably = new Ably.Rest(process.env.ABLY_API_KEY);
+
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 
 const db = getFirestore();
 const app = express();
-const httpServer = createServer(app);
-const io = new Server(httpServer, {
-  cors: {
-    // ⚠️ Remember to replace this with your actual Vercel URL
-    origin: ["http://localhost:5173", "https://your-vercel-frontend-url.vercel.app"],
-  },
-});
 
-io.on('connection', (socket) => {
-  console.log('A user connected:', socket.id);
+app.use(cors({
+  origin: ["http://localhost:5173", "https://your-vercel-frontend-url.vercel.app"] 
+}));
 
-  socket.on('join_room', (chatId) => {
-    socket.join(chatId);
-    console.log(`User ${socket.id} joined room ${chatId}`);
-  });
+app.use(express.json());
 
-  socket.on('send_message', async (data) => {
-    const { room: chatId, message } = data;
+app.get('/auth', async (req, res) => {
     try {
-      const chatRef = db.collection('chats').doc(chatId);
-      
-      await chatRef.set({
-        messages: FieldValue.arrayUnion(message)
-      }, { merge: true });
-
-      socket.to(chatId).emit('receive_message', message);
+      const tokenRequest = await ably.auth.createTokenRequest({ clientId: req.query.clientId || 'default-client' });
+      res.json(tokenRequest);
     } catch (error) {
-      console.error("Error saving message to Firestore:", error);
+      res.status(500).send(`Error requesting Ably token: ${error}`);
     }
-  });
-
-  socket.on('disconnect', () => {
-    console.log('User disconnected:', socket.id);
-  });
+});
+app.post('/message', async (req, res) => {
+    const { chatId, message } = req.body;
+    const senderId = message.senderId;
+    const receiverId = chatId.replace(senderId, '');
+    try {
+        const receiverDoc = await db.collection('users').doc(receiverId).get();
+        if (receiverDoc.exists && receiverDoc.data().blocked?.includes(senderId)) {
+            return res.status(403).json({ error: 'You are blocked by this user.' });
+        }
+        const senderDoc = await db.collection('users').doc(senderId).get();
+        if (senderDoc.exists && senderDoc.data().blocked?.includes(receiverId)) {
+            return res.status(403).json({ error: 'You have blocked this user.' });
+        }
+        const chatRef = db.collection('chats').doc(chatId);
+        await chatRef.set({ messages: FieldValue.arrayUnion(message) }, { merge: true });
+        const channel = ably.channels.get(`chat:${chatId}`);
+        await channel.publish('new-message', message);
+        res.status(200).json({ success: true });
+    } catch (error) {
+        console.error('Error processing message:', error);
+        res.status(500).json({ error: 'Failed to process message' });
+    }
+});
+app.post('/add-friend', async (req, res) => {
+    const { userId, friendId } = req.body;
+    try {
+        const userRef = db.collection('users').doc(userId);
+        const friendRef = db.collection('users').doc(friendId);
+        await db.runTransaction(async (t) => {
+            t.update(userRef, { friends: FieldValue.arrayUnion(friendId) });
+            t.update(friendRef, { friends: FieldValue.arrayUnion(userId) });
+        });
+        res.status(200).json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to add friend.' });
+    }
+});
+app.post('/toggle-block', async (req, res) => {
+    const { userId, targetId } = req.body;
+    try {
+        const userRef = db.collection('users').doc(userId);
+        const userDoc = await userRef.get();
+        const userData = userDoc.data();
+        const isBlocked = userData.blocked?.includes(targetId);
+        await userRef.update({
+            blocked: isBlocked ? FieldValue.arrayRemove(targetId) : FieldValue.arrayUnion(targetId)
+        });
+        res.status(200).json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to update block status.' });
+    }
 });
 
-// Use the port provided by the hosting environment, or 3001 for local dev
 const PORT = process.env.PORT || 3001;
-httpServer.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`✅ Server running on port ${PORT}`);
 });
