@@ -25,7 +25,7 @@ const db = getFirestore();
 const app = express();
 
 app.use(cors({
-  origin: ["http://localhost:5173", "https://your-vercel-frontend-url.vercel.app"] 
+  origin: ["http://localhost:5173", "https://flux-chat-theta.vercel.app"]
 }));
 
 app.use(express.json());
